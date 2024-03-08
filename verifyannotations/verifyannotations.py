@@ -1,7 +1,11 @@
 import os
 import random
-
 import cv2
+from colorama import init, Fore
+from tqdm import tqdm
+
+# Initialize colorama
+init()
 
 
 class VerifyDataAnnotations:
@@ -21,28 +25,68 @@ class VerifyDataAnnotations:
 
     def verify_folders(self):
         if not os.path.exists(self.label_folder):
-            print("Error: Label folder does not exist.")
+            print(Fore.RED + "Error: Label folder does not exist.")
             return False
 
         if not os.path.exists(self.raw_image_folder):
-            print("Error: Raw image folder does not exist.")
+            print(Fore.RED + "Error: Raw image folder does not exist.")
             return False
 
         if not os.path.exists(self.output_image_folder):
             os.makedirs(self.output_image_folder)
 
+        if (
+            not self.class_path
+            or not os.path.exists(self.class_path)
+            or not self.class_path.lower().endswith(".txt")
+        ):
+            print(
+                Fore.RED
+                + "Error: Invalid class file path. Please provide a valid text file for classes. \n One class per line on the text tile"
+            )
+            return False
+
         label_files = os.listdir(self.label_folder)
         for file_name in label_files:
-            if not file_name.endswith(".txt"):
-                print("Error: Label folder should only contain text files.")
+            if not file_name.lower().endswith(".txt"):
+                print(Fore.RED + "Error: Label folder should only contain text files.")
                 return False
 
         image_files = os.listdir(self.raw_image_folder)
-        image_extensions = [".bmp", ".jpg", ".jpeg", ".png"]
+        image_extensions = [
+            ".bmp",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".tiff",
+            ".tif",
+            ".webp",
+        ]
         for file_name in image_files:
-            if not file_name.endswith(tuple(image_extensions)):
-                print("Error: Raw image folder should only contain image files.")
+            if not file_name.lower().endswith(
+                tuple(ext.lower() for ext in image_extensions)
+            ):
+                print(
+                    Fore.RED
+                    + "Error: Raw image folder should only contain image files with valid extensions[.bmp, .jpg, .jpeg, .png, .gif, .tiff, .tif, .webp]."
+                )
                 return False
+
+        # Check if image_name_list_path is valid, create one if not provided
+        if (
+            not self.image_name_list_path
+            or not os.path.exists(self.image_name_list_path)
+            or not self.image_name_list_path.lower().endswith(".txt")
+        ):
+            print(
+                Fore.YELLOW
+                + "Warning: Invalid image name list path. Creating a new one."
+            )
+            self.image_name_list_path = os.path.join(
+                os.path.dirname(self.raw_image_folder), "image_name_list.txt"
+            )
+            self.create_name_list()
 
         return True
 
@@ -85,15 +129,42 @@ class VerifyDataAnnotations:
 
     def annotate_image(self, image_name, classes, colors):
         label_file_path = os.path.join(self.label_folder, f"{image_name}.txt")
-        image_path = os.path.join(self.raw_image_folder, f"{image_name}.bmp")
-        save_file_path = os.path.join(self.output_image_folder, f"{image_name}.bmp")
+        image_path = None
+        image_extension = None
+
+        # Iterate over image extensions to find the correct image file
+        for extension in [
+            ".bmp",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".tiff",
+            ".tif",
+            ".webp",
+        ]:
+            potential_image_path = os.path.join(
+                self.raw_image_folder, f"{image_name}{extension}"
+            )
+            if os.path.exists(potential_image_path):
+                image_path = potential_image_path
+                image_extension = extension
+                break
+
+        if image_path is None:
+            print(Fore.RED + f"Error: Image {image_name} not found.")
+            return 0
+
+        save_file_path = os.path.join(
+            self.output_image_folder, f"{image_name}{image_extension}"
+        )
 
         label_file = open(label_file_path)
         image = cv2.imread(image_path)
         try:
             height, width, _ = image.shape
         except AttributeError:
-            print(f"Error: Image {image_name}.bmp is invalid.")
+            print(Fore.RED + f"Error: Image {image_name} is invalid.")
             return 0
 
         box_number = 0
@@ -152,7 +223,7 @@ class VerifyDataAnnotations:
 
         box_total = 0
         image_total = 0
-        for image_name in image_names:
+        for image_name in tqdm(image_names, desc="Verifying annotations", unit="image"):
             box_num = self.annotate_image(
                 image_name,
                 classes,
@@ -160,6 +231,5 @@ class VerifyDataAnnotations:
             )
             box_total += box_num
             image_total += 1
-            print("Box number:", box_total, "Image number:", image_total)
 
-        print(f"Verification results saved in: {self.output_image_folder}")
+        print(Fore.GREEN + f"Verification results saved in: {self.output_image_folder}")
