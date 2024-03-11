@@ -129,7 +129,7 @@ This will validate the annotations, annotate the images with bounding boxes, and
 
 ### CASE 2
 In case your PASCAL VOC dataset has the structure shown below,
-
+```
 ├── annotations/
 │   ├── image1.xml
 │   ├── image2.xml
@@ -139,7 +139,7 @@ In case your PASCAL VOC dataset has the structure shown below,
 │   ├── image1.jpg
 │   ├── image2.jpg
 │   └── ...
-
+```
 You have separate directories for images `images` and `annotations`, then you can verify the PASCAL VOC annotations like this:
 
 ## Input Parameters
